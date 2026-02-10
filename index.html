@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>BADATGIL — Character System</title>
+<!-- Preload critical font (LCP optimization) -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&family=Space+Grotesk:wght@400;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&family=Space+Grotesk:wght@400;600;700&display=swap">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  :root {
+    --bg: #F5F0EB; --bg-panel: #E8E3DD; --fg: #1A1A1A;
+    --muted: #8C8680; --accent: #1389F6; --teal: #49C5E3;
+    --warm: #FFE9A0; --concrete: #E8E3DD;
+    --bar-bg: rgba(245,240,235,0.92);
+    --shadow-card: 0 20px 60px rgba(0,0,0,0.08), 0 4px 12px rgba(0,0,0,0.04);
+    --dot-border: rgba(255,255,255,0.6); --noise-opacity: 0.03;
+    --char-bg: #FFE9A0; --char-body: #1389F6;
+    --char-glass: #49C5E3; --char-eye: #111827;
+    --stroke-color: var(--fg);
+    --negative: #F24147;
+  }
+  [data-theme="dark"] {
+    --bg: #0D0D0D; --bg-panel: #161616; --fg: #E8E3DD;
+    --muted: #6B6560; --accent: #49C5E3; --concrete: #2A2522;
+    --bar-bg: rgba(13,13,13,0.92);
+    --shadow-card: 0 20px 80px rgba(0,0,0,0.5), 0 0 40px rgba(73,197,227,0.08);
+    --dot-border: rgba(255,255,255,0.2); --noise-opacity: 0.05;
+    --char-bg: #1A1A1A; --char-body: #1389F6;
+    --char-glass: #FFE9A0; --char-eye: #0D0D0D;
+    --stroke-color: var(--fg);
+  }
+
+  body {
+    background: var(--bg); color: var(--fg);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh; overflow-x: hidden;
+    transition: background 0.6s, color 0.6s;
+  }
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+    opacity: var(--noise-opacity); pointer-events: none; z-index: 9999;
+  }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 20px 40px; border-bottom: 1px solid var(--concrete); transition: border-color 0.6s;
+  }
+  .topbar-logo { font-family: 'Space Grotesk'; font-weight: 700; font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .topbar-center { display: flex; align-items: center; gap: 12px; }
+  .mode-label { font-family: 'Space Grotesk'; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+  .theme-toggle { position: relative; width: 48px; height: 28px; background: var(--concrete); border-radius: 14px; border: none; cursor: pointer; transition: background 0.3s; min-height: 44px; min-width: 48px; display: flex; align-items: center; }
+  .theme-toggle::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: var(--fg); transition: transform 0.3s cubic-bezier(0.68,-0.55,0.27,1.55); }
+  [data-theme="dark"] .theme-toggle::after { transform: translateX(24px); background: var(--accent); box-shadow: 0 0 12px rgba(73,197,227,0.5); }
+  .topbar-right { font-family: 'Space Grotesk'; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--muted); }
+
+  /* ── Hero ── */
+  .hero { display: grid; grid-template-columns: 1fr 1fr; min-height: calc(100vh - 61px); }
+  .hero-left { display: flex; flex-direction: column; justify-content: center; padding: 80px 60px; position: relative; }
+  .hero-left::after { content: ''; position: absolute; right: 0; top: 10%; height: 80%; width: 1px; background: var(--concrete); }
+  .label { font-family: 'Space Grotesk'; font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-bottom: 32px; }
+  .hero-title { font-family: 'Space Grotesk'; font-size: clamp(48px,6vw,80px); font-weight: 700; line-height: 1.0; letter-spacing: -2px; margin-bottom: 24px; }
+  .hero-title span { display: block; }
+  .hero-title .stroke-text { -webkit-text-stroke: 1.5px var(--stroke-color); color: transparent; }
+  .hero-title .accent-text { color: var(--accent); transition: color 0.6s; }
+  [data-theme="dark"] .hero-title .accent-text { text-shadow: 0 0 30px rgba(73,197,227,0.3); }
+  .hero-desc { font-size: 14px; line-height: 1.8; color: var(--muted); max-width: 360px; margin-bottom: 48px; font-weight: 300; }
+  .tags { display: flex; gap: 8px; flex-wrap: wrap; }
+  .tag { font-family: 'Space Grotesk'; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; padding: 6px 14px; border: 1px solid var(--concrete); border-radius: 20px; color: var(--muted); background: transparent; transition: all 0.3s; cursor: default; }
+  .tag:hover { border-color: var(--accent); color: var(--accent); }
+  .tag.active { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+
+  /* ── Hero Right ── */
+  .hero-right { display: flex; align-items: center; justify-content: center; padding: 60px; position: relative; background: var(--bg-panel); transition: background 0.6s; }
+  [data-theme="dark"] .hero-right::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 300px; height: 300px; background: radial-gradient(circle,rgba(73,197,227,0.08) 0%,transparent 70%); border-radius: 50%; pointer-events: none; }
+  .character-frame { position: relative; width: 100%; max-width: 420px; aspect-ratio: 1; animation: float 6s ease-in-out infinite; }
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+  .character-frame svg { width: 100%; height: 100%; border-radius: 24px; box-shadow: var(--shadow-card); transition: transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94), box-shadow 0.6s; }
+  .character-frame:hover svg { transform: scale(1.04); }
+  .character-frame:hover { animation-play-state: paused; }
+  .frame-label { position: absolute; bottom: -36px; left: 0; right: 0; text-align: center; font-family: 'Space Grotesk'; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); }
+  .palette-strip { position: absolute; top: 40px; right: 40px; display: flex; flex-direction: column; gap: 6px; }
+  .palette-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--dot-border); cursor: pointer; transition: transform 0.2s; }
+  .palette-dot:hover { transform: scale(1.3); }
+
+  /* ── SVG theming ── */
+  .char-bg-rect { fill: var(--char-bg); transition: fill 0.6s; }
+  .char-body { fill: var(--char-body); transition: fill 0.6s; }
+  .char-glass { fill: var(--char-glass); transition: fill 0.6s; }
+  .char-eye { fill: var(--char-eye); transition: fill 0.6s; }
+  .eye-pupil, .eye-highlight { transition: cx 0.08s ease-out, cy 0.08s ease-out; will-change: cx, cy; }
+
+  /* ── Accessibility: reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+    .character-frame { animation: none !important; }
+    .state-card.loading .state-icon svg { animation: none !important; }
+  }
+
+  /* ══ Sections ══ */
+  .section {
+    padding: 80px 40px;
+    border-top: 1px solid var(--concrete);
+    transition: border-color 0.6s;
+  }
+  .section:last-of-type { padding-bottom: 120px; }
+  .section-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 48px; }
+  .section-title { font-family: 'Space Grotesk'; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); }
+  .section-count { font-family: 'Space Grotesk'; font-size: 11px; color: var(--muted); }
+
+  /* ── Variation Grid ── */
+  .var-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 24px; }
+  .var-card { background: var(--bg-panel); border-radius: 16px; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s, background 0.6s; cursor: pointer; }
+  .var-card:hover { transform: translateY(-4px); box-shadow: 0 12px 32px rgba(0,0,0,0.1); }
+  [data-theme="dark"] .var-card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.4), 0 0 20px rgba(73,197,227,0.06); }
+  .var-card svg { width: 100%; aspect-ratio: 1; display: block; }
+  .var-card-info { padding: 12px 16px; display: flex; justify-content: space-between; align-items: center; }
+  .var-card-name { font-family: 'Space Grotesk'; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; }
+  .var-card-tag { font-family: 'Space Grotesk'; font-size: 9px; letter-spacing: 1px; color: var(--muted); text-transform: uppercase; padding: 3px 8px; border: 1px solid var(--concrete); border-radius: 10px; }
+
+  /* ── State Icons Section ── */
+  .state-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 20px; }
+  .state-card {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 24px 16px; background: var(--bg-panel);
+    border-radius: 16px; transition: all 0.3s;
+    text-align: center;
+  }
+  .state-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.06); }
+  .state-icon { width: 64px; height: 64px; margin-bottom: 12px; border-radius: 16px; overflow: hidden; }
+  .state-icon svg { width: 100%; height: 100%; }
+  .state-label { font-family: 'Space Grotesk'; font-size: 12px; font-weight: 600; letter-spacing: 1px; margin-bottom: 4px; }
+  .state-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+  .state-code {
+    margin-top: 8px; font-family: monospace; font-size: 10px;
+    background: var(--concrete); padding: 4px 10px;
+    border-radius: 6px; color: var(--accent);
+  }
+
+  /* ── Loading animation on sleepy ── */
+  @keyframes pulse-slow { 0%,100%{opacity:0.5} 50%{opacity:1} }
+  .state-card.loading .state-icon svg { animation: pulse-slow 2s ease-in-out infinite; }
+
+  /* ── Bottom Bar ── */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0;
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 40px; padding-bottom: max(16px, env(safe-area-inset-bottom));
+    background: var(--bar-bg);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border-top: 1px solid var(--concrete); z-index: 100;
+    transition: background 0.6s, border-color 0.6s;
+  }
+  .bottom-bar .info { font-family: 'Space Grotesk'; font-size: 11px; letter-spacing: 1px; color: var(--muted); }
+  .bottom-bar .download-btn { font-family: 'Space Grotesk'; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; padding: 12px 28px; min-height: 44px; background: var(--fg); color: var(--bg); border: none; border-radius: 6px; cursor: pointer; transition: all 0.3s; }
+  .bottom-bar .download-btn:hover { background: var(--accent); color: white; box-shadow: 0 0 20px rgba(73,197,227,0.3); }
+
+  [data-theme="dark"] .topbar-logo { animation: neon-flicker 8s ease-in-out infinite; }
+  @keyframes neon-flicker { 0%,19%,21%,23%,25%,54%,56%,100%{opacity:1} 20%,24%,55%{opacity:0.6} }
+
+  @media (max-width:768px) {
+    .hero { grid-template-columns: 1fr; }
+    .hero-left { padding: 40px 24px; order: 2; }
+    .hero-left::after { display: none; }
+    .hero-right { padding: 32px 24px; min-height: 40vh; order: 1; }
+    .topbar { padding: 16px 16px; }
+    .topbar-right { display: none; }
+    .bottom-bar { padding: 12px 16px; }
+    .bottom-bar .info { font-size: 9px; }
+    .character-frame { max-width: 280px; animation-duration: 4s; }
+    .section { padding: 48px 20px; }
+    .var-grid { grid-template-columns: repeat(2,1fr); gap: 12px; }
+    .state-grid { grid-template-columns: repeat(3,1fr); gap: 10px; }
+    .var-card-info { padding: 10px 12px; }
+    .var-card-name { font-size: 10px; }
+    .var-card-tag { font-size: 8px; padding: 2px 6px; }
+    .state-card { padding: 16px 10px; }
+    .state-icon { width: 48px; height: 48px; border-radius: 12px; margin-bottom: 8px; }
+    .state-label { font-size: 10px; }
+    .state-desc { font-size: 9px; }
+    .state-code { font-size: 8px; margin-top: 6px; padding: 3px 6px; }
+    .palette-strip { top: 20px; right: 20px; }
+    .palette-dot { width: 20px; height: 20px; }
+    .hero-title { font-size: clamp(36px, 10vw, 48px); }
+    .hero-desc { font-size: 13px; margin-bottom: 32px; }
+    .frame-label { font-size: 8px; bottom: -28px; }
+    .section-header { margin-bottom: 32px; flex-wrap: wrap; gap: 8px; }
+  }
+  @media (max-width:360px) {
+    .hero-title { font-size: 32px; }
+    .hero-left { padding: 32px 16px; }
+    .hero-right { padding: 24px 16px; }
+    .var-grid { grid-template-columns: repeat(2,1fr); gap: 10px; }
+    .state-grid { grid-template-columns: repeat(2,1fr); }
+    .character-frame { max-width: 220px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">Badatgil&ensp;Studio</div>
+  <div class="topbar-center">
+    <span class="mode-label">Seongsu</span>
+    <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme"></button>
+    <span class="mode-label">Euljiro</span>
+  </div>
+  <div class="topbar-right">Character System&ensp;/&ensp;2026</div>
+</div>
+
+<!-- ══ HERO ══ -->
+<div class="hero">
+  <div class="hero-left">
+    <div class="label">Character System</div>
+    <h1 class="hero-title">
+      <span class="stroke-text">Meet</span>
+      <span class="accent-text">바닷길</span>
+      <span>친구.</span>
+    </h1>
+    <p class="hero-desc">
+      바닷길지도의 브랜드 캐릭터 시스템.<br>
+      9가지 표정과 악세사리 바리에이션,<br>
+      앱 상태별 아이콘으로 활용 가능.
+    </p>
+    <div class="tags">
+      <span class="tag active">Interactive</span>
+      <span class="tag">9 Variations</span>
+      <span class="tag">State Icons</span>
+      <span class="tag">Dark Mode</span>
+    </div>
+  </div>
+
+  <div class="hero-right">
+    <div class="palette-strip">
+      <div class="palette-dot" style="background:#FFE9A0" title="Accent"></div>
+      <div class="palette-dot" style="background:#1389F6" title="Primary"></div>
+      <div class="palette-dot" style="background:#49C5E3" title="Secondary"></div>
+      <div class="palette-dot" style="background:#111827" title="Gray900"></div>
+      <div class="palette-dot" style="background:#fff;border-color:#ddd" title="White"></div>
+    </div>
+    <div class="character-frame" id="mainChar">
+      <svg id="mainSvg" viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="char-title char-desc">
+        <title id="char-title">바닷길 캐릭터</title>
+        <desc id="char-desc">틸 컬러 안경을 쓴 파란 바닷길 마스코트. 마우스를 따라 눈이 움직입니다.</desc>
+        <rect width="400" height="400" rx="24" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/>
+        <circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <circle cx="200" cy="275" r="18" class="char-eye"/>
+      </svg>
+      <div class="frame-label">마우스를 움직여보세요&ensp;—&ensp;눈이 따라와요</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ EXPRESSIONS ══ -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-title">Expressions&ensp;&ensp;—&ensp;&ensp;표정</div>
+    <div class="section-count">6 types / click to download</div>
+  </div>
+  <div class="var-grid">
+
+    <!-- Default -->
+    <div class="var-card" onclick="downloadVar(this,'default')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <circle cx="200" cy="275" r="18" class="char-eye"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Default</span><span class="var-card-tag">기본</span></div>
+    </div>
+
+    <!-- Happy -->
+    <div class="var-card" onclick="downloadVar(this,'happy')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <path d="M165 268 Q200 308 235 268" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Happy</span><span class="var-card-tag">행복</span></div>
+    </div>
+
+    <!-- Sleepy -->
+    <div class="var-card" onclick="downloadVar(this,'sleepy')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="203" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="203" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="205" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="215" r="55" class="char-glass"/><circle cx="265" cy="215" r="55" class="char-glass"/>
+        <ellipse cx="135" cy="218" rx="40" ry="20" class="char-eye"/><ellipse cx="265" cy="218" rx="40" ry="20" class="char-eye"/>
+        <circle cx="120" cy="210" r="5" fill="white"/><circle cx="250" cy="210" r="5" fill="white"/>
+        <ellipse cx="200" cy="285" rx="12" ry="8" class="char-eye"/>
+        <text x="310" y="120" font-family="Space Grotesk" font-size="28" font-weight="700" fill="white" opacity="0.5">Z</text>
+        <text x="330" y="90" font-family="Space Grotesk" font-size="20" font-weight="700" fill="white" opacity="0.35">z</text>
+        <text x="345" y="68" font-family="Space Grotesk" font-size="14" font-weight="700" fill="white" opacity="0.2">z</text>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Sleepy</span><span class="var-card-tag">졸림</span></div>
+    </div>
+
+    <!-- Wink -->
+    <div class="var-card" onclick="downloadVar(this,'wink')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <path d="M235 205 Q265 185 295 205" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+        <path d="M172 268 Q200 300 228 268" stroke-width="7" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+        <ellipse cx="200" cy="292" rx="10" ry="7" fill="#F24147"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Wink</span><span class="var-card-tag">윙크</span></div>
+    </div>
+
+    <!-- Surprised -->
+    <div class="var-card" onclick="downloadVar(this,'surprised')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="45" y="183" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="183" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="185" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="195" r="58" class="char-glass"/><circle cx="265" cy="195" r="58" class="char-glass"/>
+        <circle cx="135" cy="195" r="45" class="char-eye eye-pupil" data-ox="135" data-oy="195"/>
+        <circle cx="265" cy="195" r="45" class="char-eye eye-pupil" data-ox="265" data-oy="195"/>
+        <circle cx="115" cy="172" r="10" fill="white" class="eye-highlight" data-ox="115" data-oy="172"/>
+        <circle cx="245" cy="172" r="10" fill="white" class="eye-highlight" data-ox="245" data-oy="172"/>
+        <circle cx="125" cy="183" r="5" fill="white"/><circle cx="255" cy="183" r="5" fill="white"/>
+        <ellipse cx="200" cy="280" rx="25" ry="30" class="char-eye"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Surprised</span><span class="var-card-tag">놀람</span></div>
+    </div>
+
+    <!-- Cool -->
+    <div class="var-card" onclick="downloadVar(this,'cool')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <rect x="40" y="190" width="55" height="24" rx="12" class="char-eye"/><rect x="305" y="190" width="55" height="24" rx="12" class="char-eye"/>
+        <rect x="178" y="195" width="44" height="14" rx="7" class="char-eye"/>
+        <rect x="75" y="178" width="120" height="58" rx="12" class="char-eye"/>
+        <rect x="205" y="178" width="120" height="58" rx="12" class="char-eye"/>
+        <rect x="85" y="184" width="30" height="6" rx="3" fill="white" opacity="0.25"/>
+        <rect x="215" y="184" width="30" height="6" rx="3" fill="white" opacity="0.25"/>
+        <path d="M175 275 Q200 295 235 270" stroke-width="7" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Cool</span><span class="var-card-tag">멋짐</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ ACCESSORIES ══ -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-title">Accessories&ensp;&ensp;—&ensp;&ensp;악세사리</div>
+    <div class="section-count">3 types / click to download</div>
+  </div>
+  <div class="var-grid">
+
+    <!-- Captain Hat (선장 모자) -->
+    <div class="var-card" onclick="downloadVar(this,'captain')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <!-- Captain Hat -->
+        <ellipse cx="200" cy="52" rx="130" ry="16" fill="white"/>
+        <path d="M80 52 Q80 -10 200 -20 Q320 -10 320 52 Z" fill="#111827"/>
+        <rect x="80" y="40" width="240" height="18" rx="4" fill="#111827"/>
+        <rect x="90" y="36" width="220" height="8" fill="white"/>
+        <!-- Anchor emblem -->
+        <circle cx="200" cy="20" r="10" fill="none" stroke="#FFE9A0" stroke-width="2"/>
+        <line x1="200" y1="10" x2="200" y2="32" stroke="#FFE9A0" stroke-width="2"/>
+        <path d="M190 28 Q200 35 210 28" stroke="#FFE9A0" stroke-width="2" fill="none"/>
+        <!-- Face -->
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <circle cx="200" cy="275" r="18" class="char-eye"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Captain</span><span class="var-card-tag">선장</span></div>
+    </div>
+
+    <!-- Bucket Hat (버킷햇) -->
+    <div class="var-card" onclick="downloadVar(this,'bucket-hat')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <!-- Bucket Hat -->
+        <ellipse cx="200" cy="78" rx="155" ry="20" class="char-glass"/>
+        <path d="M85 78 Q85 10 200 0 Q315 10 315 78 Z" fill="white"/>
+        <rect x="85" y="62" width="230" height="20" rx="4" fill="white"/>
+        <!-- Wave pattern on hat -->
+        <path d="M110 50 Q130 40 150 50 Q170 60 190 50 Q210 40 230 50 Q250 60 270 50 Q290 40 300 50" stroke="var(--char-glass)" stroke-width="3" fill="none" style="stroke:var(--char-glass)"/>
+        <!-- Face -->
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <path d="M165 268 Q200 308 235 268" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Bucket Hat</span><span class="var-card-tag">여행자</span></div>
+    </div>
+
+    <!-- Headphones (헤드폰) -->
+    <div class="var-card" onclick="downloadVar(this,'headphones')">
+      <svg viewBox="0 0 400 400" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect width="400" height="400" class="char-bg-rect"/>
+        <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+        <!-- Headphone band -->
+        <path d="M55 180 Q55 40 200 20 Q345 40 345 180" stroke="#111827" stroke-width="12" fill="none" stroke-linecap="round"/>
+        <!-- Ear cups -->
+        <rect x="32" y="155" width="50" height="70" rx="14" fill="#111827"/>
+        <rect x="318" y="155" width="50" height="70" rx="14" fill="#111827"/>
+        <rect x="40" y="165" width="34" height="50" rx="10" fill="#333"/>
+        <rect x="326" y="165" width="34" height="50" rx="10" fill="#333"/>
+        <!-- Face -->
+        <rect x="45" y="193" width="50" height="24" rx="12" class="char-glass"/><rect x="305" y="193" width="50" height="24" rx="12" class="char-glass"/>
+        <rect x="180" y="195" width="40" height="20" rx="10" class="char-glass"/>
+        <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+        <circle cx="135" cy="205" r="40" class="char-eye eye-pupil" data-ox="135" data-oy="205"/>
+        <circle cx="265" cy="205" r="40" class="char-eye eye-pupil" data-ox="265" data-oy="205"/>
+        <circle cx="115" cy="185" r="8" fill="white" class="eye-highlight" data-ox="115" data-oy="185"/>
+        <circle cx="245" cy="185" r="8" fill="white" class="eye-highlight" data-ox="245" data-oy="185"/>
+        <path d="M165 268 Q200 308 235 268" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+        <!-- Music notes -->
+        <text x="330" y="130" font-size="24" fill="white" opacity="0.4">&#9835;</text>
+        <text x="355" y="105" font-size="18" fill="white" opacity="0.25">&#9834;</text>
+      </svg>
+      <div class="var-card-info"><span class="var-card-name">Headphones</span><span class="var-card-tag">음악</span></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══ APP STATE ICONS ══ -->
+<section class="section">
+  <div class="section-header">
+    <div class="section-title">App States&ensp;&ensp;—&ensp;&ensp;앱 상태 아이콘</div>
+    <div class="section-count">Use in React Native</div>
+  </div>
+  <div class="state-grid">
+
+    <div class="state-card loading">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <circle cx="135" cy="215" r="55" class="char-glass"/><circle cx="265" cy="215" r="55" class="char-glass"/>
+          <ellipse cx="135" cy="218" rx="40" ry="20" class="char-eye"/><ellipse cx="265" cy="218" rx="40" ry="20" class="char-eye"/>
+          <ellipse cx="200" cy="285" rx="12" ry="8" class="char-eye"/>
+        </svg>
+      </div>
+      <div class="state-label">Loading</div>
+      <div class="state-desc">데이터 로딩 중</div>
+      <div class="state-code">&lt;Sleepy /&gt;</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+          <circle cx="135" cy="205" r="40" class="char-eye"/><circle cx="265" cy="205" r="40" class="char-eye"/>
+          <circle cx="115" cy="185" r="8" fill="white"/><circle cx="245" cy="185" r="8" fill="white"/>
+          <path d="M165 268 Q200 308 235 268" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+        </svg>
+      </div>
+      <div class="state-label">Success</div>
+      <div class="state-desc">작업 완료</div>
+      <div class="state-code">&lt;Happy /&gt;</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <circle cx="135" cy="195" r="58" class="char-glass"/><circle cx="265" cy="195" r="58" class="char-glass"/>
+          <circle cx="135" cy="195" r="45" class="char-eye"/><circle cx="265" cy="195" r="45" class="char-eye"/>
+          <circle cx="115" cy="172" r="10" fill="white"/><circle cx="245" cy="172" r="10" fill="white"/>
+          <ellipse cx="200" cy="280" rx="25" ry="30" class="char-eye"/>
+        </svg>
+      </div>
+      <div class="state-label">Error</div>
+      <div class="state-desc">오류 발생</div>
+      <div class="state-code">&lt;Surprised /&gt;</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+          <circle cx="135" cy="205" r="40" class="char-eye"/><circle cx="265" cy="205" r="40" class="char-eye"/>
+          <circle cx="115" cy="185" r="8" fill="white"/><circle cx="245" cy="185" r="8" fill="white"/>
+          <circle cx="200" cy="275" r="18" class="char-eye"/>
+        </svg>
+      </div>
+      <div class="state-label">Empty</div>
+      <div class="state-desc">결과 없음</div>
+      <div class="state-code">&lt;Default /&gt;</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <rect x="75" y="178" width="120" height="58" rx="12" class="char-eye"/>
+          <rect x="205" y="178" width="120" height="58" rx="12" class="char-eye"/>
+          <rect x="85" y="184" width="30" height="6" rx="3" fill="white" opacity="0.25"/>
+          <rect x="215" y="184" width="30" height="6" rx="3" fill="white" opacity="0.25"/>
+          <path d="M175 275 Q200 295 235 270" stroke-width="7" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+        </svg>
+      </div>
+      <div class="state-label">Offline</div>
+      <div class="state-desc">네트워크 끊김</div>
+      <div class="state-code">&lt;Cool /&gt;</div>
+    </div>
+
+    <div class="state-card">
+      <div class="state-icon">
+        <svg viewBox="0 0 400 400" fill="none"><rect width="400" height="400" class="char-bg-rect"/>
+          <path d="M0 400V190C0 190 0 0 200 0C400 0 400 190 400 190V400H0Z" class="char-body"/>
+          <circle cx="135" cy="205" r="55" class="char-glass"/><circle cx="265" cy="205" r="55" class="char-glass"/>
+          <circle cx="135" cy="205" r="40" class="char-eye"/><circle cx="115" cy="185" r="8" fill="white"/>
+          <path d="M235 205 Q265 185 295 205" stroke-width="8" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+          <path d="M172 268 Q200 300 228 268" stroke-width="7" stroke-linecap="round" fill="none" style="stroke:var(--char-eye)"/>
+          <ellipse cx="200" cy="292" rx="10" ry="7" fill="#F24147"/>
+        </svg>
+      </div>
+      <div class="state-label">Onboarding</div>
+      <div class="state-desc">첫 방문 안내</div>
+      <div class="state-code">&lt;Wink /&gt;</div>
+    </div>
+
+  </div>
+</section>
+
+<div class="bottom-bar">
+  <div class="info">9 Variations&ensp;|&ensp;6 App States&ensp;|&ensp;Click card to download</div>
+  <button class="download-btn" onclick="downloadSVG()">Download Main ↓</button>
+</div>
+
+<script>
+/* ── Theme ── */
+function toggleTheme() {
+  const h = document.documentElement;
+  h.setAttribute('data-theme', h.getAttribute('data-theme') === 'dark' ? '' : 'dark');
+}
+
+/* ── Eye Tracking (ALL cards) — RAF throttled + pointer events ── */
+const MAX_MOVE = 10, HL_MOVE = 6;
+let lastPointerX = 0, lastPointerY = 0, rafPending = false;
+
+// Cache element references (avoid querySelectorAll on every frame)
+let cachedPupils = null, cachedHighlights = null;
+function refreshCache() {
+  cachedPupils = document.querySelectorAll('.eye-pupil[data-ox]');
+  cachedHighlights = document.querySelectorAll('.eye-highlight[data-ox]');
+}
+refreshCache();
+
+function updateEyes() {
+  rafPending = false;
+  const cx = lastPointerX, cy = lastPointerY;
+
+  cachedPupils.forEach(el => {
+    const svg = el.closest('svg');
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    // Skip off-screen SVGs (viewport culling)
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+    const mx = ((cx - rect.left) / rect.width) * 400;
+    const my = ((cy - rect.top) / rect.height) * 400;
+    const ox = +el.dataset.ox, oy = +el.dataset.oy;
+    const dx = mx - ox, dy = my - oy;
+    const clamp = Math.min(Math.sqrt(dx*dx + dy*dy) / 8, MAX_MOVE);
+    const angle = Math.atan2(dy, dx);
+    el.setAttribute('cx', ox + Math.cos(angle) * clamp);
+    el.setAttribute('cy', oy + Math.sin(angle) * clamp);
+  });
+
+  cachedHighlights.forEach(el => {
+    const svg = el.closest('svg');
+    if (!svg) return;
+    const rect = svg.getBoundingClientRect();
+    if (rect.bottom < 0 || rect.top > window.innerHeight) return;
+    const mx = ((cx - rect.left) / rect.width) * 400;
+    const my = ((cy - rect.top) / rect.height) * 400;
+    const ox = +el.dataset.ox, oy = +el.dataset.oy;
+    const dx = mx - ox, dy = my - oy;
+    const clamp = Math.min(Math.sqrt(dx*dx + dy*dy) / 8, HL_MOVE);
+    const angle = Math.atan2(dy, dx);
+    el.setAttribute('cx', ox + Math.cos(angle) * clamp);
+    el.setAttribute('cy', oy + Math.sin(angle) * clamp);
+  });
+}
+
+function onPointerMove(e) {
+  lastPointerX = e.clientX;
+  lastPointerY = e.clientY;
+  if (!rafPending) {
+    rafPending = true;
+    requestAnimationFrame(updateEyes);
+  }
+}
+
+// Unified pointer events (mouse + touch + pen)
+document.addEventListener('pointermove', onPointerMove, { passive: true });
+
+// Fallback for older browsers
+document.addEventListener('touchmove', e => {
+  if (e.touches.length) {
+    lastPointerX = e.touches[0].clientX;
+    lastPointerY = e.touches[0].clientY;
+    if (!rafPending) { rafPending = true; requestAnimationFrame(updateEyes); }
+  }
+}, { passive: true });
+
+/* ── Periodic Blink (main character only) ── */
+function doBlink() {
+  const main = document.getElementById('mainSvg');
+  if (!main) return;
+  main.querySelectorAll('.eye-pupil').forEach(el => {
+    el.style.transition = 'none';
+    const origCy = el.getAttribute('cy');
+    const oy = parseFloat(el.dataset.oy);
+    el.setAttribute('ry', '2');
+    setTimeout(() => { el.removeAttribute('ry'); el.style.transition = ''; }, 150);
+  });
+}
+function scheduleBlink() {
+  setTimeout(() => { doBlink(); scheduleBlink(); }, 3000 + Math.random() * 3000);
+}
+scheduleBlink();
+
+/* ── Downloads ── */
+function resolveColors(svgEl) {
+  const clone = svgEl.cloneNode(true);
+  const t = document.documentElement.getAttribute('data-theme');
+  const c = t === 'dark'
+    ? { bg:'#1A1A1A', body:'#1389F6', glass:'#FFE9A0', eye:'#0D0D0D' }
+    : { bg:'#FFE9A0', body:'#1389F6', glass:'#49C5E3', eye:'#111827' };
+  clone.querySelectorAll('.char-bg-rect').forEach(el => el.setAttribute('fill', c.bg));
+  clone.querySelectorAll('.char-body').forEach(el => el.setAttribute('fill', c.body));
+  clone.querySelectorAll('.char-glass').forEach(el => el.setAttribute('fill', c.glass));
+  clone.querySelectorAll('.char-eye').forEach(el => {
+    el.setAttribute('fill', c.eye);
+    if (el.style.stroke) el.style.stroke = c.eye;
+  });
+  // Resolve inline stroke styles
+  clone.querySelectorAll('[style*="stroke:var"]').forEach(el => {
+    el.setAttribute('stroke', c.eye);
+    el.style.stroke = '';
+  });
+  clone.querySelectorAll('[class]').forEach(el => el.removeAttribute('class'));
+  clone.querySelectorAll('[id]').forEach(el => el.removeAttribute('id'));
+  clone.querySelectorAll('[data-ox],[data-oy]').forEach(el => { el.removeAttribute('data-ox'); el.removeAttribute('data-oy'); });
+  return clone;
+}
+
+function triggerDownload(svgEl, name) {
+  const clone = resolveColors(svgEl);
+  const s = new XMLSerializer();
+  const src = '<?xml version="1.0" standalone="no"?>\r\n' + s.serializeToString(clone);
+  const blob = new Blob([src], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const t = document.documentElement.getAttribute('data-theme');
+  a.download = `badatgil-${name}${t === 'dark' ? '-dark' : ''}.svg`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function downloadSVG() { triggerDownload(document.getElementById('mainSvg'), 'character'); }
+function downloadVar(card, name) { triggerDownload(card.querySelector('svg'), name); }
+</script>
+</body>
+</html>
